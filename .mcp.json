@@ -1,0 +1,24 @@
+{
+  "_comment": [
+    "MCP servers for INTERACTIVE work in Claude Code: auditioning voices,",
+    "spot-checking an image prompt, inspecting the repo from a chat session.",
+    "",
+    "The nightly pipeline deliberately does NOT go through MCP. MCP needs an",
+    "MCP client (a model, in a session) in the loop for every call; a cron job",
+    "at 4am has no such session and should not need one. The pipeline stages",
+    "call the same vendor REST APIs directly, which also gives them retries,",
+    "per-beat resume, and cost accounting that an MCP round-trip would hide.",
+    "",
+    "Both paths read the same .env, so a voice you audition here is the voice",
+    "the pipeline uses."
+  ],
+  "mcpServers": {
+    "elevenlabs": {
+      "command": "uvx",
+      "args": ["elevenlabs-mcp"],
+      "env": {
+        "ELEVENLABS_API_KEY": "${ELEVENLABS_API_KEY}"
+      }
+    }
+  }
+}

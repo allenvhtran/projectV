@@ -1,0 +1,85 @@
+# Pipeline behaviour. See docs/ORIGINALITY.md for why the variation block exists.
+
+target:
+  runtime_minutes: 10
+  # Real narration rate for this style, measured not guessed. Re-measure after
+  # your first 5 episodes with:  python -m pipeline.cli calibrate
+  words_per_minute: 143
+  # Beats are the atomic unit: one narration chunk == one image == one shot.
+  seconds_per_beat_min: 11
+  seconds_per_beat_max: 19
+
+# --- Anti-template variation -------------------------------------------------
+# YouTube's "Generic or Repetitive Content" policy targets output that is
+# "easily replicable at scale" and "looks like it was made with a template with
+# little to no variation across videos". A daily pipeline is exactly the shape
+# that trips this, so structure is randomised per episode and logged, and the
+# orchestrator refuses to reuse a structure used in the last N episodes.
+variation:
+  lookback_episodes: 12
+
+  structures:
+    - id: linear_witness
+      desc: "Single narrator, strict chronology, one escalating location."
+    - id: nested_document
+      desc: "Framing device: narrator reads a found log/transcript, interrupting to annotate."
+    - id: reverse_reveal
+      desc: "Opens on the aftermath, works backwards to the inciting moment."
+    - id: two_accounts
+      desc: "Two witnesses' versions of the same night that disagree on one detail."
+    - id: procedural
+      desc: "Told through an official process (dispatch calls, incident reports) with human cracks showing."
+    - id: recurrence
+      desc: "The same event across three separate decades, each told shorter than the last."
+
+  cold_opens:
+    - id: in_medias_res
+      desc: "Drop into the worst 20 seconds, then pull back."
+    - id: mundane_detail
+      desc: "Open on something ordinary that is retroactively horrifying."
+    - id: direct_address
+      desc: "Narrator addresses a specific unresolved question about the case."
+    - id: negative_space
+      desc: "Describe what was NOT found."
+
+  # Runtime jitter so the library doesn't have 30 videos of identical length.
+  runtime_jitter_minutes: [-1.5, 2.5]
+
+  # Endings must not all land the same way.
+  resolutions:
+    - unexplained_but_documented
+    - mundane_explanation_that_fails
+    - partial_answer_worse_than_none
+    - the_witness_recants
+
+setting_pool:
+  # Location-based prompts. Original scenarios in real *categories* of place —
+  # never a real named incident, real victim, or real address.
+  - "a decommissioned hydroelectric station"
+  - "a highway rest stop between two towns that no longer exist"
+  - "a fire lookout tower during a comms blackout"
+  - "an overnight ferry with more cabins than manifest entries"
+  - "a hospital wing closed for asbestos remediation"
+  - "a grain elevator on a failing farm"
+  - "a rural telephone exchange building"
+  - "a ski resort during the off-season maintenance window"
+  - "a long-term parking garage at a regional airport"
+  - "a flooded limestone quarry"
+  - "a night-shift distribution warehouse"
+  - "a lighthouse keeper's relief rotation"
+  - "a motel converted from a sanatorium"
+  - "a stretch of forest service road with no cell coverage"
+  - "a university records basement during a semester break"
+
+cost_ceilings:
+  # Hard stops. The orchestrator aborts rather than silently overspending.
+  per_episode_usd: 3.00
+  per_month_usd: 220.00
+
+images:
+  # flux-schnell for establishing/filler, flux-dev for the 6-8 shots that carry
+  # the episode. Mixing keeps per-episode image spend near $0.35 instead of $1.
+  model_cheap: "black-forest-labs/flux-schnell"
+  model_hero: "black-forest-labs/flux-dev"
+  hero_beat_ratio: 0.18
+  retries: 3

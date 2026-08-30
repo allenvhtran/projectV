@@ -1,0 +1,49 @@
+# Channel identity. Everything the writer model needs to stay on-brand.
+channel:
+  name: "Hollow Hours"
+  tagline: "Stories from the places people don't come back from."
+  # Narration persona drives word choice, not just voice settings.
+  narrator_persona: >
+    A calm, unhurried man in his late thirties recounting something he has
+    verified but still does not entirely believe. He never shouts, never uses
+    the word "terrifying", and never tells the audience how to feel. His fear
+    shows up as precision: he remembers the wrong details too clearly.
+
+voice:
+  # ElevenLabs. Override per-episode in the manifest if you A/B voices.
+  model_id: eleven_multilingual_v2
+  stability: 0.45          # lower = more expressive, more variance run-to-run
+  similarity_boost: 0.75
+  style: 0.30
+  speed: 0.94              # slightly under 1.0 reads as "considered"
+  # Silence inserted after each beat, seconds. Dread lives in the gaps.
+  beat_pause_default: 0.65
+  beat_pause_after_reveal: 1.4
+
+visual:
+  aspect: "1920x1080"
+  # FLUX renders at these dims then we upscale for the Ken Burns headroom.
+  gen_size: "1344x768"
+  style_suffix: >
+    shot on 35mm film, heavy grain, desaturated cold palette, deep shadows,
+    single practical light source, fog, wide negative space, no people facing
+    camera, no text, no watermark, photographic not illustrative
+  negative: "cartoon, anime, cgi, 3d render, text, watermark, logo, smiling, bright saturated colors, gore, blood"
+
+music:
+  bed_volume: 0.14         # pre-duck level relative to narration
+  duck_threshold: 0.035
+  duck_ratio: 8
+
+render:
+  fps: 30
+  crossfade_seconds: 0.9
+  ken_burns: true
+  grain: true
+  grain_strength: 4        # 4 ~= 2 Mbps, 7 ~= 8.6 Mbps. Measured, not guessed.
+  vignette: true
+  # zoompan upscale factor. 2 is the quality/CPU knee; 3-4 is marginally
+  # smoother and several times slower. See _kenburns() for why it matters.
+  kb_upscale: 2
+  clip_preset: medium      # per-shot pass (parallel)
+  final_preset: medium     # xfade + mix pass (single, long)
