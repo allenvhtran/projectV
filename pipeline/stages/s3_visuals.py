@@ -17,6 +17,7 @@ import requests
 
 from ..config import Config, env
 from ..costs import RATES
+from ..dryrun import placeholder_card
 from ..state import Manifest
 
 API = "https://api.replicate.com/v1"
@@ -57,13 +58,27 @@ def _predict(model: str, payload: dict, token: str, timeout: int = 300) -> str:
     return out[0] if isinstance(out, list) else out
 
 
-def run(m: Manifest, cfg: Config, force: bool = False) -> Manifest:
+def run(m: Manifest, cfg: Config, force: bool = False,
+        dry_run: bool = False) -> Manifest:
     if m.done("visuals") and not force:
         print("  visuals: already done, skipping")
         return m
 
-    token = env("REPLICATE_API_TOKEN")
     vis = cfg.channel["visual"]
+    if dry_run:
+        made = 0
+        for b in m.beats:
+            dest = m.path("images", f"beat_{b['id']:03d}.png")
+            if dest.exists() and not force:
+                continue
+            placeholder_card(b, dest, vis["gen_size"])
+            made += 1
+        m.mark("visuals", images=len(m.beats), rendered_now=made, dry_run=True)
+        print(f"  visuals: {len(m.beats)} placeholder cards "
+              f"(DRY RUN -- no images generated, $0 spent)")
+        return m
+
+    token = env("REPLICATE_API_TOKEN")
     icfg = cfg.pipeline["images"]
     beats = m.beats
     img_dir = m.path("images")

@@ -60,11 +60,21 @@ def _kenburns(move: str, frames: int, w: int, h: int, upscale: int) -> str:
     )
 
 
-def _build_clips(m: Manifest, cfg: Config, force: bool) -> list[Path]:
+def _profile(cfg: Config, preview: bool) -> dict:
+    """Render settings, with the preview profile layered on top when asked."""
+    r = dict(cfg.channel["render"])
+    if preview:
+        r.update(r.get("preview") or {})
+    return r
+
+
+def _build_clips(m: Manifest, cfg: Config, force: bool,
+                 preview: bool = False) -> list[Path]:
     """Pass 1. Shots are independent, so they render in parallel -- this pass
-    is ~80% of wall-clock time and scales almost linearly with cores."""
-    r = cfg.channel["render"]
-    w, h = (int(x) for x in cfg.channel["visual"]["aspect"].split("x"))
+    scales almost linearly with cores, unlike the xfade chain that follows."""
+    r = _profile(cfg, preview)
+    w, h = (int(x) for x in
+            r.get("aspect", cfg.channel["visual"]["aspect"]).split("x"))
     fps, xf = r["fps"], float(r["crossfade_seconds"])
     upscale = int(r.get("kb_upscale", 2))
     preset = r.get("clip_preset", "medium")
@@ -117,7 +127,8 @@ def _build_clips(m: Manifest, cfg: Config, force: bool) -> list[Path]:
     return clips
 
 
-def _video_chain(n: int, starts: list[float], xf: float, cfg: Config) -> tuple[str, str]:
+def _video_chain(n: int, starts: list[float], xf: float, cfg: Config,
+                 preview: bool = False) -> tuple[str, str]:
     """xfade chain + grade. Returns (filter_graph, final_label)."""
     parts, prev = [], "0:v"
     for k in range(1, n):
@@ -129,7 +140,7 @@ def _video_chain(n: int, starts: list[float], xf: float, cfg: Config) -> tuple[s
         )
         prev = label
 
-    r = cfg.channel["render"]
+    r = _profile(cfg, preview)
     grade = ["format=yuv420p"]
     if r.get("vignette"):
         grade.append("vignette=PI/5")
@@ -224,21 +235,23 @@ def _write_srt(m: Manifest) -> Path:
     return out
 
 
-def run(m: Manifest, cfg: Config, force: bool = False) -> Manifest:
+def run(m: Manifest, cfg: Config, force: bool = False,
+        preview: bool = False) -> Manifest:
     if m.done("assemble") and not force:
         print("  assemble: already done, skipping")
         return m
     if "timeline" not in m.data:
         raise SystemExit("No timeline -- run the voice stage first.")
 
-    xf = float(cfg.channel["render"]["crossfade_seconds"])
-    clips = _build_clips(m, cfg, force)
+    r = _profile(cfg, preview)
+    xf = float(r["crossfade_seconds"])
+    clips = _build_clips(m, cfg, force, preview)
 
     timeline = m.data["timeline"]
     starts = [t["start"] for t in timeline]
     total = sum(t["shot_duration"] for t in timeline) + xf
 
-    vgraph, vlabel = _video_chain(len(clips), starts, xf, cfg)
+    vgraph, vlabel = _video_chain(len(clips), starts, xf, cfg, preview)
     agraph, extra_inputs, alabel = _audio_chain(m, cfg, len(clips), total)
 
     inputs = []
@@ -246,18 +259,19 @@ def run(m: Manifest, cfg: Config, force: bool = False) -> Manifest:
         inputs += ["-i", str(c)]
     inputs += extra_inputs
 
-    out = m.path(f"{m.slug}.mp4")
-    print(f"  assemble: mixing {len(clips)} clips -> {total / 60:.2f} min ...")
+    out = m.path(f"{m.slug}-preview.mp4" if preview else f"{m.slug}.mp4")
+    print(f"  assemble: mixing {len(clips)} clips -> {total / 60:.2f} min"
+          f"{' (preview quality)' if preview else ''} ...")
     ff([
         "ffmpeg", "-y", *inputs,
         "-filter_complex", f"{vgraph};{agraph}",
         "-map", f"[{vlabel}]", "-map", f"[{alabel}]",
-        "-c:v", "libx264", "-preset", cfg.channel["render"].get("final_preset", "medium"),
-        "-crf", "19",
+        "-c:v", "libx264", "-preset", r.get("final_preset", "medium"),
+        "-crf", str(r.get("crf", 19)),
         # Safety net: grain on a detailed frame can push CRF 19 well past what
         # YouTube will keep. This never binds on a normal episode.
         "-maxrate", "16M", "-bufsize", "32M",
-        "-pix_fmt", "yuv420p", "-r", str(cfg.channel["render"]["fps"]),
+        "-pix_fmt", "yuv420p", "-r", str(r["fps"]),
         "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
         "-movflags", "+faststart", "-t", f"{total:.3f}", str(out),
     ])
@@ -269,6 +283,6 @@ def run(m: Manifest, cfg: Config, force: bool = False) -> Manifest:
         "seconds": round(actual, 2),
         "captions": srt.name,
     }
-    m.mark("assemble", seconds=round(actual, 2), clips=len(clips))
+    m.mark("assemble", seconds=round(actual, 2), clips=len(clips), preview=preview)
     print(f"  assemble: {out.name} ({actual / 60:.2f} min)")
     return m

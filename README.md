@@ -21,14 +21,33 @@ instead of needing forced alignment after the fact.
 
 ```bash
 make setup                      # deps + ffmpeg check + .env scaffold
-$EDITOR .env                    # add your 4 keys
-make test                       # end-to-end assembly check, no keys needed
+make test                       # assembly self-check, no keys needed
 
+make preview                    # <- watch episode 001 for FREE, no keys at all
+
+$EDITOR .env                    # add your 4 keys
 python -m pipeline.cli voices   # pick a narrator, paste id into .env
 make new                        # build an episode (stops before upload)
 python -m pipeline.cli auth     # one-time YouTube OAuth
 make upload                     # uploads PRIVATE. review, then publish
 ```
+
+### Try it before you pay for it
+
+`--dry-run` replaces the two stages that cost money. Narration becomes silence
+of exactly the length the words will take; stills become cards showing the beat
+number, section and image prompt. Everything else is the real pipeline, so you
+get a watchable episode with **real pacing** — where the cuts land, how the
+crossfades feel, whether ten minutes breathes — for $0.
+
+```bash
+python -m pipeline.cli seed ep001
+python -m pipeline.cli run --slug ep001-fire-lookout --dry-run
+```
+
+Dry runs render at 720p/fast (see `render.preview` in `config/channel.yaml`):
+~2 minutes for a 10-minute episode instead of tens. Upload refuses a dry-run
+episode. `--preview` alone gives you the same fast render of *real* assets.
 
 Read **[docs/ORIGINALITY.md](docs/ORIGINALITY.md) before your first upload** —
 it covers the YouTube policy that this pipeline's architecture is a response to.

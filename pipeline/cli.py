@@ -35,6 +35,10 @@ STAGE_MODULES = {
 ORDER = list(STAGE_MODULES)
 
 
+DRY_CAPABLE = {"voice", "visuals"}      # take dry_run=
+PREVIEW_CAPABLE = {"assemble"}          # take preview=
+
+
 def stage_fn(name: str):
     try:
         return import_module(f".stages.{STAGE_MODULES[name]}", __package__).run
@@ -55,7 +59,7 @@ def cmd_new(args) -> None:
     )
     m = Manifest.create(var["setting"], variation=var)
     print(f"  slug:    {m.slug}\n")
-    _run_stages(m, cfg, ORDER, args.force)
+    _run_stages(m, cfg, ORDER, args.force, dry_run=getattr(args, "dry_run", False))
 
 
 def cmd_run(args) -> None:
@@ -63,15 +67,39 @@ def cmd_run(args) -> None:
     m = Manifest.load(args.slug) if args.slug else Manifest.latest()
     print(f"Episode {m.slug}\n")
     stages = [args.stage] if args.stage else ORDER
-    _run_stages(m, cfg, stages, args.force)
+    _run_stages(m, cfg, stages, args.force, dry_run=args.dry_run,
+                preview=getattr(args, "preview", False))
 
 
-def _run_stages(m: Manifest, cfg: Config, stages: list[str], force: bool) -> None:
+def _run_stages(m: Manifest, cfg: Config, stages: list[str], force: bool,
+                dry_run: bool = False, preview: bool = False) -> None:
+    if dry_run:
+        # The paid stages get stand-ins; metadata is simply skipped, since its
+        # only output is packaging you would rewrite before publishing anyway.
+        stages = [s for s in stages if s != "metadata"]
+        m.data["dry_run"] = True
+        m.save()
+
     for name in stages:
         print(f"[{name}]")
-        m = stage_fn(name)(m, cfg, force=force)
+        fn = stage_fn(name)
+        if dry_run and name in DRY_CAPABLE:
+            m = fn(m, cfg, force=force, dry_run=True)
+        elif name in PREVIEW_CAPABLE and (dry_run or preview):
+            m = fn(m, cfg, force=force, preview=True)
+        else:
+            m = fn(m, cfg, force=force)
         check_ceilings(m, cfg.pipeline)
+
     total = m.data.get("costs", {}).get("total", 0.0)
+    if dry_run:
+        print(
+            f"\nDRY RUN complete: {m.dir}\n"
+            f"Spent: $0.00. Watch {m.data.get('video', {}).get('path', 'the render')} "
+            f"for pacing, then re-run for real:\n"
+            f"  python -m pipeline.cli run --slug {m.slug} --force"
+        )
+        return
     print(
         f"\nDone: {m.dir}\n"
         f"Episode cost: ${total:.2f}   Month to date: ${month_total(m.data['created_at'][:7]):.2f}\n"
@@ -188,12 +216,18 @@ def main() -> None:
     new = sub.add_parser("new", help="start and build a new episode")
     new.add_argument("--seed", type=int, help="reproducible variation choice")
     new.add_argument("--force", action="store_true")
+    new.add_argument("--dry-run", action="store_true",
+                     help="stand-ins for voice and images; costs nothing")
     new.set_defaults(func=cmd_new)
 
     run_p = sub.add_parser("run", help="resume or re-run stages")
     run_p.add_argument("--slug")
     run_p.add_argument("--stage", choices=ORDER)
     run_p.add_argument("--force", action="store_true")
+    run_p.add_argument("--dry-run", action="store_true",
+                       help="stand-ins for voice and images; costs nothing")
+    run_p.add_argument("--preview", action="store_true",
+                       help="720p fast render of real assets, for pacing checks")
     run_p.set_defaults(func=cmd_run)
 
     sd = sub.add_parser("seed", help="import a hand-written script from seed/")

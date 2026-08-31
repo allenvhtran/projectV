@@ -17,6 +17,7 @@ import requests
 
 from ..config import Config, env
 from ..costs import RATES
+from ..dryrun import fake_narration
 from ..media import concat_audio, duration, silence
 from ..state import Manifest
 
@@ -73,13 +74,15 @@ def _tts(text: str, prev: str, nxt: str, voice_id: str, vcfg: dict, out: Path) -
     raise SystemExit(f"TTS failed for {out.name} after 4 attempts: {last_err}")
 
 
-def run(m: Manifest, cfg: Config, force: bool = False) -> Manifest:
+def run(m: Manifest, cfg: Config, force: bool = False,
+        dry_run: bool = False) -> Manifest:
     if m.done("voice") and not force:
         print("  voice: already done, skipping")
         return m
 
-    voice_id = env("ELEVENLABS_VOICE_ID")
     vcfg = cfg.channel["voice"]
+    voice_id = "DRY-RUN" if dry_run else env("ELEVENLABS_VOICE_ID")
+    wpm = cfg.pipeline["target"]["words_per_minute"]
     beats = m.beats
     audio_dir = m.path("audio")
 
@@ -91,10 +94,13 @@ def run(m: Manifest, cfg: Config, force: bool = False) -> Manifest:
     for i, b in enumerate(beats):
         clip = audio_dir / f"beat_{b['id']:03d}.mp3"
         if not clip.exists() or force:
-            prev = beats[i - 1]["narration"] if i > 0 else ""
-            nxt = beats[i + 1]["narration"] if i + 1 < len(beats) else ""
             print(f"  voice: beat {b['id']}/{len(beats)} ...", end="\r", flush=True)
-            _tts(b["narration"], prev, nxt, voice_id, vcfg, clip)
+            if dry_run:
+                fake_narration(b["narration"], wpm, clip)
+            else:
+                prev = beats[i - 1]["narration"] if i > 0 else ""
+                nxt = beats[i + 1]["narration"] if i + 1 < len(beats) else ""
+                _tts(b["narration"], prev, nxt, voice_id, vcfg, clip)
         total_chars += len(b["narration"])
 
         speech = duration(clip)
@@ -122,20 +128,26 @@ def run(m: Manifest, cfg: Config, force: bool = False) -> Manifest:
     m.data["narration_chars"] = total_chars
 
     # Quota tracking, not a marginal charge -- Pro is a flat $99/500k chars.
-    quota_share = (
-        total_chars / RATES["elevenlabs_monthly_chars"]
-    ) * RATES["elevenlabs_monthly_usd"]
-    m.add_cost("voice_quota_share", quota_share)
+    if not dry_run:
+        quota_share = (
+            total_chars / RATES["elevenlabs_monthly_chars"]
+        ) * RATES["elevenlabs_monthly_usd"]
+        m.add_cost("voice_quota_share", quota_share)
 
     m.mark(
         "voice",
+        dry_run=dry_run,
         seconds=round(total, 2),
         chars=total_chars,
         beats=len(beats),
         voice_id=voice_id,
     )
-    print(
-        f"  voice: {total / 60:.2f} min, {total_chars:,} chars "
-        f"({total_chars / RATES['elevenlabs_monthly_chars'] * 100:.1f}% of monthly quota)"
-    )
+    if dry_run:
+        print(f"  voice: {total / 60:.2f} min of estimated timing "
+              f"(DRY RUN -- no audio generated, {total_chars:,} chars not spent)")
+    else:
+        print(
+            f"  voice: {total / 60:.2f} min, {total_chars:,} chars "
+            f"({total_chars / RATES['elevenlabs_monthly_chars'] * 100:.1f}% of monthly quota)"
+        )
     return m

@@ -66,6 +66,16 @@ def run(m: Manifest, cfg: Config, force: bool = False, publish: bool = False,
         print("  upload: already done, skipping")
         return m
 
+    # Checked before the Google imports so the guard still fires on a machine
+    # that hasn't installed them yet -- otherwise a missing dependency masks
+    # the far more useful message.
+    if m.data.get("dry_run"):
+        raise SystemExit(
+            "This episode was built with --dry-run: the narration is silence "
+            "and the stills are placeholder cards. Re-run it for real first:\n"
+            f"  python -m pipeline.cli run --slug {m.slug} --force"
+        )
+
     from googleapiclient.http import MediaFileUpload
 
     video = m.path(m.data["video"]["path"])

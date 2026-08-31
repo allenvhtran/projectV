@@ -6,6 +6,15 @@
 make new                     # ~10-25 min wall clock, mostly ffmpeg
 ```
 
+Before a script you're unsure about, check its rhythm for free first:
+
+```bash
+python -m pipeline.cli run --dry-run       # ~2 min, $0, placeholder assets
+```
+
+Nothing is spent, so it is worth doing on any script whose pacing you doubt.
+Measured on 4 cores: a 35-beat / 9.8-minute episode dry-runs in 114 seconds.
+
 Then, before anything ships:
 
 1. **Read `episodes/<slug>/meta/script.txt`.** Edit it if it's flat. This is
@@ -56,8 +65,12 @@ reasonable starting guess for this style at `speed: 0.94`, but voices differ by
 
 ## Render performance
 
-The per-shot Ken Burns pass is ~80% of wall clock and runs in parallel across
-cores. If renders are too slow:
+Two passes: parallel per-shot Ken Burns clips, then a single xfade + mix pass.
+The second is the one that hurts — it is effectively serial and it is where a
+full-quality 10-minute 1080p render spends most of its time.
+
+Reach for `--preview` (720p, fast preset, no grain) whenever you are checking
+pacing rather than judging quality. If full renders are still too slow:
 
 - `render.kb_upscale: 2 → 1` (drops zoompan resampling cost, adds slight
   stair-stepping on the move)

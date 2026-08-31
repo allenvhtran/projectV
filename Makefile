@@ -12,6 +12,10 @@ setup:   ## install deps and check ffmpeg
 new:     ## generate a whole new episode (stops before upload)
 	python -m pipeline.cli new
 
+preview: ## build episode 001 with free stand-ins - no API keys needed
+	python -m pipeline.cli seed ep001
+	python -m pipeline.cli run --dry-run
+
 resume:  ## resume the latest episode from wherever it stopped
 	python -m pipeline.cli run
 

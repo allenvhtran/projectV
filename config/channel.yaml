@@ -47,3 +47,15 @@ render:
   kb_upscale: 2
   clip_preset: medium      # per-shot pass (parallel)
   final_preset: medium     # xfade + mix pass (single, long)
+
+  # Used by --dry-run, and available via `--stage assemble --preview` when you
+  # only need to check pacing. A 10-minute 1080p render with grain is tens of
+  # minutes of CPU; this is a couple. Overrides the values above.
+  preview:
+    aspect: "1280x720"
+    kb_upscale: 1
+    clip_preset: veryfast
+    final_preset: veryfast
+    crf: 26
+    grain: false
+    vignette: false
