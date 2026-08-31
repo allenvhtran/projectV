@@ -71,6 +71,27 @@ setting_pool:
   - "a stretch of forest service road with no cell coverage"
   - "a university records basement during a semester break"
 
+# --- Voice plan ---------------------------------------------------------------
+# Drives quota warnings and cost reporting. Change these together when you
+# change plan; `python -m pipeline.cli costs` reads them.
+#
+# Credits are not characters. eleven_multilingual_v2 bills 1 credit/char;
+# the Flash and Turbo models bill ~0.5, which doubles effective capacity at a
+# real cost in expressiveness. For narration -- a batch job where latency is
+# irrelevant and delivery is the entire product -- multilingual_v2 is worth
+# the 2x. Set credits_per_char to 0.5 only if you switch model_id too.
+elevenlabs:
+  plan: Creator
+  monthly_credits: 121000
+  monthly_usd: 22.00
+  credits_per_char: 1.0
+  # Tier-dependent, and the figure that decides Creator-vs-Pro. Confirm yours
+  # on the billing page rather than trusting this default.
+  overage_usd_per_1k: 0.30
+  # 192kbps requires Creator or above. YouTube re-encodes to ~128k AAC anyway,
+  # but starting from 192 avoids stacking a second lossy pass on a first.
+  output_format: mp3_44100_192
+
 cost_ceilings:
   # Hard stops. The orchestrator aborts rather than silently overspending.
   per_episode_usd: 3.00

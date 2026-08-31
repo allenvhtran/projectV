@@ -58,7 +58,7 @@ image quality — you have no channel data for it to optimise against yet.
 
 | Item | Cost | Note |
 |---|---|---|
-| ElevenLabs Pro | $99 | 500k chars/mo |
+| ElevenLabs **Creator** | $22 | 121k credits/mo — see below |
 | Storyblocks | ~$20 | optional, for stock inserts |
 | Music library | ~$15 | Artlist/Epidemic tier |
 | TubeBuddy/vidIQ | ~$20 | manual, droppable |
@@ -75,14 +75,42 @@ image quality — you have no channel data for it to optimise against yet.
 **Daily uploads: ~$154 + $18 variable ≈ $172/month.** Your $150–200 estimate
 holds.
 
-### The ElevenLabs quota is the constraint to watch
+### Start on Creator, not Pro
 
-A 10-minute episode is ~8,500 characters. Daily → ~255k chars/month, comfortably
-inside Pro's 500k. But that leaves no room for re-reads: regenerating narration
-for even a third of your episodes puts you near the ceiling, and overage is
-billed per character. The pipeline caches per-beat audio precisely so a fix
-costs one beat, not one episode. `python -m pipeline.cli costs` prints your
-running character total.
+Measured from episode 001: **7,258 characters for 9.76 minutes.** Against
+Creator's 121,000 credits (`eleven_multilingual_v2` bills 1 credit/char):
+
+| Cadence | Chars/mo | Creator $22 | Pro $99 |
+|---|---|---|---|
+| 3×/week (13 eps) | 94,354 | **78% of allowance** | 19% |
+| 5×/week (22 eps) | 159,676 | +$4–12 overage | 32% |
+| Daily (30 eps) | 217,740 | +$10–29 overage | 44% |
+
+Creator carries **16 episodes/month** inside the allowance, and even at daily
+the overage is far short of Pro's extra $77. Creator also has everything this
+pipeline touches: API access, a **commercial licence** (the Free tier has
+neither), 192 kbps output, and Professional Voice Cloning.
+
+Pro buys higher concurrency and 44.1 kHz PCM output. This pipeline synthesises
+one beat at a time and delivers to YouTube, which re-encodes to ~128 kbps AAC
+regardless — so neither is worth $77/month here.
+
+**Upgrade when overage exceeds $77/month, not when cadence changes.** Configure
+your plan in `config/pipeline.yaml` under `elevenlabs:`; `make costs` reports
+usage against it and the voice stage warns *before* an episode crosses the line.
+
+Confirm your own overage rate on the billing page — it is tier-dependent, and
+published figures vary between $0.10 and $0.30 per 1,000 characters. The
+conclusion above holds at either end, but the exact numbers move.
+
+### The Flash/Turbo lever, and why not to pull it
+
+Flash and Turbo models bill ~0.5 credits/char, which would double Creator's
+effective capacity and put even daily uploads inside the allowance. They are
+optimised for low latency — irrelevant to a batch render — at a real cost in
+expressiveness. For a channel where delivery *is* the product, that is the
+wrong trade. Set `credits_per_char: 0.5` only if you also change
+`voice.model_id`.
 
 ## Sources
 

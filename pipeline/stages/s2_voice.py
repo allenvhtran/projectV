@@ -16,7 +16,7 @@ from pathlib import Path
 import requests
 
 from ..config import Config, env
-from ..costs import RATES
+from ..costs import month_chars, voice_spend
 from ..dryrun import fake_narration
 from ..media import concat_audio, duration, silence
 from ..state import Manifest
@@ -33,7 +33,8 @@ def list_voices() -> list[dict]:
     return r.json().get("voices", [])
 
 
-def _tts(text: str, prev: str, nxt: str, voice_id: str, vcfg: dict, out: Path) -> None:
+def _tts(text: str, prev: str, nxt: str, voice_id: str, vcfg: dict, out: Path,
+         output_format: str = "mp3_44100_128") -> None:
     body = {
         "text": text,
         "model_id": vcfg["model_id"],
@@ -59,7 +60,7 @@ def _tts(text: str, prev: str, nxt: str, voice_id: str, vcfg: dict, out: Path) -
                     "xi-api-key": env("ELEVENLABS_API_KEY"),
                     "Content-Type": "application/json",
                 },
-                params={"output_format": "mp3_44100_128"},
+                params={"output_format": output_format},
                 json=body,
                 timeout=180,
             )
@@ -81,8 +82,23 @@ def run(m: Manifest, cfg: Config, force: bool = False,
         return m
 
     vcfg = cfg.channel["voice"]
+    plan = cfg.pipeline["elevenlabs"]
     voice_id = "DRY-RUN" if dry_run else env("ELEVENLABS_VOICE_ID")
     wpm = cfg.pipeline["target"]["words_per_minute"]
+
+    # Warn before spending, not after. An episode that tips you into overage
+    # is fine -- one that does it because you forgot you already re-read three
+    # episodes this month is not.
+    if not dry_run:
+        pending = sum(len(b["narration"]) for b in m.beats)
+        used = month_chars(m.data.get("created_at", "")[:7])
+        allowance = plan["monthly_credits"] / plan.get("credits_per_char", 1.0)
+        if used + pending > allowance:
+            over_chars = used + pending - allowance
+            cost = over_chars / 1000 * plan.get("overage_usd_per_1k", 0.30)
+            print(f"  voice: NOTE this episode crosses the {plan['plan']} "
+                  f"allowance ({used + pending:,.0f} of {allowance:,.0f} chars). "
+                  f"Overage on it: ~${cost:.2f}")
     beats = m.beats
     audio_dir = m.path("audio")
 
@@ -100,7 +116,8 @@ def run(m: Manifest, cfg: Config, force: bool = False,
             else:
                 prev = beats[i - 1]["narration"] if i > 0 else ""
                 nxt = beats[i + 1]["narration"] if i + 1 < len(beats) else ""
-                _tts(b["narration"], prev, nxt, voice_id, vcfg, clip)
+                _tts(b["narration"], prev, nxt, voice_id, vcfg, clip,
+                     plan.get("output_format", "mp3_44100_128"))
         total_chars += len(b["narration"])
 
         speech = duration(clip)
@@ -127,12 +144,15 @@ def run(m: Manifest, cfg: Config, force: bool = False,
     m.data["narration_seconds"] = round(total, 2)
     m.data["narration_chars"] = total_chars
 
-    # Quota tracking, not a marginal charge -- Pro is a flat $99/500k chars.
+    # Inside the allowance the subscription is sunk, so only overage is a real
+    # marginal cost. Booking a pro-rata share of the monthly fee here would
+    # make a quiet month look expensive and a busy one look cheap.
     if not dry_run:
-        quota_share = (
-            total_chars / RATES["elevenlabs_monthly_chars"]
-        ) * RATES["elevenlabs_monthly_usd"]
-        m.add_cost("voice_quota_share", quota_share)
+        month_total_chars = month_chars(m.data.get("created_at", "")[:7])
+        _, overage_now = voice_spend(month_total_chars, plan)
+        _, overage_before = voice_spend(month_total_chars - total_chars, plan)
+        if overage_now > overage_before:
+            m.add_cost("voice_overage", overage_now - overage_before)
 
     m.mark(
         "voice",
@@ -146,8 +166,10 @@ def run(m: Manifest, cfg: Config, force: bool = False,
         print(f"  voice: {total / 60:.2f} min of estimated timing "
               f"(DRY RUN -- no audio generated, {total_chars:,} chars not spent)")
     else:
+        allowance = plan["monthly_credits"] / plan.get("credits_per_char", 1.0)
         print(
             f"  voice: {total / 60:.2f} min, {total_chars:,} chars "
-            f"({total_chars / RATES['elevenlabs_monthly_chars'] * 100:.1f}% of monthly quota)"
+            f"({month_chars(m.data.get('created_at', '')[:7]):,} of "
+            f"{allowance:,.0f} this month on {plan['plan']})"
         )
     return m

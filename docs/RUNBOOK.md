@@ -78,6 +78,16 @@ pacing rather than judging quality. If full renders are still too slow:
 - `render.grain_strength: 4 → 0` — grain is the biggest driver of output file
   size (strength 4 ≈ 2 Mbps, strength 7 ≈ 8.6 Mbps at 1080p30 CRF 19)
 
+## Watching the voice quota
+
+`make costs` reports characters used this month against your configured plan
+and how many more episodes fit. The voice stage also warns before synthesising
+an episode that would cross the allowance, so a surprise bill needs you to
+ignore a message, not miss one.
+
+Per-beat caching is what makes re-reads cheap: fixing one line costs that
+line's characters, not the episode's 7,258.
+
 ## Health checks
 
 ```bash

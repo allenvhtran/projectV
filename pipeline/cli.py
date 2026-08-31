@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 
 from importlib import import_module
 
@@ -172,13 +173,30 @@ def cmd_costs(args) -> None:
             d = json.load(fh)
         rows.append((d.get("created_at", "")[:10], d["slug"],
                      d.get("costs", {}).get("total", 0.0),
-                     d.get("narration_chars", 0)))
-    chars = sum(r[3] for r in rows)
-    for date, slug, cost, c in rows:
-        print(f"{date}  {slug:<52} ${cost:>6.2f}  {c:>7,} chars")
-    print(f"\n{len(rows)} episodes   variable spend ${sum(r[2] for r in rows):.2f}"
-          f"   {chars:,} TTS chars")
-    print("Fixed monthly on top: ElevenLabs $99 + stock $20 + music $15 + SEO $20")
+                     d.get("narration_chars", 0), bool(d.get("dry_run"))))
+    from .costs import month_chars, voice_spend
+
+    plan = Config.load().pipeline["elevenlabs"]
+    for date, slug, cost, c, dry in rows:
+        tag = "  [dry run, nothing spent]" if dry else ""
+        print(f"{date}  {slug:<52} ${cost:>6.2f}  {c:>7,} chars{tag}")
+
+    this_month = time.strftime("%Y-%m")
+    used = month_chars(this_month)
+    allowance = plan["monthly_credits"] / plan.get("credits_per_char", 1.0)
+    _, overage = voice_spend(used, plan)
+
+    real = [r for r in rows if not r[4]]
+    print(f"\n{len(real)} real episodes ({len(rows) - len(real)} dry)"
+          f"   variable spend ${sum(r[2] for r in rows):.2f}"
+          f"   {sum(r[3] for r in real):,} TTS chars billed")
+    print(f"\n{plan['plan']} plan, {this_month}: {used:,} of {allowance:,.0f} chars "
+          f"({used / allowance * 100:.0f}%)"
+          + (f"   overage ${overage:.2f}" if overage else "   no overage"))
+    room = (allowance - used) / 7258
+    print(f"Room left this month: ~{max(0, room):.1f} more episodes at 7,258 chars each")
+    print(f"\nFixed monthly: ElevenLabs ${plan['monthly_usd']:.0f} + music ~$15"
+          f" (+ stock/SEO if you keep them)")
 
 
 def cmd_calibrate(args) -> None:
