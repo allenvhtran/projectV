@@ -38,6 +38,19 @@ Then, before anything ships:
 Editing `meta/script.txt` alone does nothing — the manifest's `script.beats` is
 what the stages read. Edit narration there and re-run voice.
 
+## Before your first upload: safelist the channel
+
+Whichever music library you use, connect your YouTube channel to it (Epidemic
+and Artlist both call this "safelisting") **before** the first video goes up.
+It is a one-time setting and it is what stops the library's own Content ID
+from claiming your videos.
+
+Doing it afterwards means disputing claims on everything already published --
+tedious at three videos, genuinely painful at thirty, and claims sit on the
+video earning nothing while they are open. This is the single easiest
+operational mistake to make on an automated schedule, because nobody is
+watching each upload land.
+
 ## Scheduling
 
 Only once you've done a couple of weeks by hand. Cron the *build*, never the

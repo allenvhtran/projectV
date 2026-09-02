@@ -7,6 +7,10 @@ are avoided here: the licensing position for monetised YouTube is murkier than
 a flat-rate library, and a horror bed is one of the few assets where reuse
 across episodes is an asset rather than a liability.
 
+You need roughly 8-10 tracks, not a catalogue -- beds are rotated and reused
+deliberately. Safelist your channel with the library before the first upload;
+see docs/RUNBOOK.md.
+
 Drop .mp3/.wav files in assets/music/ and optionally annotate them in
 assets/music/index.yaml:
 

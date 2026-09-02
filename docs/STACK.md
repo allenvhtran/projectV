@@ -42,6 +42,28 @@ So the split is:
 Both read the same `.env`, so a voice you pick interactively is the voice the
 pipeline uses.
 
+## Music: Epidemic Sound
+
+You need roughly **8-10 tracks, not a catalogue.** `s4_music.py` rotates a small
+local library and deliberately reuses beds across episodes -- a consistent
+sonic signature is an asset on a horror channel, not a liability. So catalogue
+size is close to irrelevant here, and licence safety is nearly everything.
+
+**Epidemic Sound** (~$15/mo) is the pick. It owns the entire rights chain,
+composition and master both, so there is no third-party rights-holder who can
+file a claim your licence does not cover. Artlist is a clean licence too, but
+it aggregates from artists, which is one more link that can go wrong.
+
+Correcting a myth you will read everywhere: **neither service lets you keep
+using downloaded tracks after you cancel.** Both work the same way -- content
+you published while subscribed stays cleared and monetisable forever, but any
+*new* use requires an active subscription. Do not pick a library on the belief
+that one grants a perpetual licence to downloaded files.
+
+The free route (YouTube Audio Library + Pixabay) is $0 and genuinely safe, but
+the dark-ambient selection is thin and heavily used. On a channel whose entire
+differentiator is atmosphere, that is a real cost, not a saving.
+
 ## 3. TubeBuddy / vidIQ stay manual
 
 Neither exposes a public write API for title/tag optimisation, so neither can
