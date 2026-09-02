@@ -9,6 +9,9 @@ setup:   ## install deps and check ffmpeg
 	@command -v ffmpeg >/dev/null || (echo "!! ffmpeg not on PATH"; exit 1)
 	@test -f .env || (cp .env.example .env && echo ">> created .env - fill it in")
 
+doctor:  ## check every key, tool and asset the pipeline needs
+	python -m pipeline.cli doctor
+
 new:     ## generate a whole new episode (stops before upload)
 	python -m pipeline.cli new
 

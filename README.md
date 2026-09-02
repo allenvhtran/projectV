@@ -21,6 +21,7 @@ instead of needing forced alignment after the fact.
 
 ```bash
 make setup                      # deps + ffmpeg check + .env scaffold
+make doctor                     # what's still missing, and how to fix each
 make test                       # assembly self-check, no keys needed
 
 make preview                    # <- watch episode 001 for FREE, no keys at all
@@ -95,6 +96,17 @@ Expect **~$0.60/episode variable, ~$172/month all-in** at daily cadence.
 
 ## Requirements
 
-Python 3.10+, ffmpeg on PATH (`brew install ffmpeg` / `apt install ffmpeg`;
-`pip install imageio-ffmpeg` works as a fallback). Keys: Anthropic, ElevenLabs,
-Replicate, and a Google OAuth desktop client for uploads.
+Python 3.10+ and ffmpeg on PATH (`brew install ffmpeg` / `apt install ffmpeg`;
+`pip install imageio-ffmpeg` is a fallback but ships no ffprobe).
+
+Four accounts:
+
+| Service | For | Cost |
+|---|---|---|
+| [Anthropic](https://console.anthropic.com) | scripts, metadata | ~$0.25/episode |
+| [ElevenLabs](https://elevenlabs.io) **Creator+** | narration | $22/mo — Free has no commercial licence |
+| [Replicate](https://replicate.com) | images, thumbnails | ~$0.33/episode |
+| [Google Cloud](https://console.cloud.google.com) | YouTube upload | free |
+
+`make doctor` checks all of them, live, and prints the specific fix for
+whatever is missing. Nothing above is needed for `--dry-run`.

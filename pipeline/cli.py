@@ -221,6 +221,12 @@ def cmd_calibrate(args) -> None:
           f"{secs / 60:.1f} min of narration.")
 
 
+def cmd_doctor(args) -> None:
+    from . import doctor
+
+    raise SystemExit(doctor.run())
+
+
 def cmd_auth(args) -> None:
     from .stages import s7_upload
 
@@ -260,7 +266,8 @@ def main() -> None:
     up.set_defaults(func=cmd_upload)
 
     for name, fn in (("voices", cmd_voices), ("costs", cmd_costs),
-                     ("calibrate", cmd_calibrate), ("auth", cmd_auth)):
+                     ("calibrate", cmd_calibrate), ("auth", cmd_auth),
+                     ("doctor", cmd_doctor)):
         s = sub.add_parser(name)
         s.set_defaults(func=fn)
 
