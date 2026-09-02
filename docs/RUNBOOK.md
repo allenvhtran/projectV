@@ -101,6 +101,22 @@ ignore a message, not miss one.
 Per-beat caching is what makes re-reads cheap: fixing one line costs that
 line's characters, not the episode's 7,258.
 
+## If `doctor` reports a 403
+
+A 403 has two unrelated causes and they need opposite fixes:
+
+- **403 from an intermediary** -- a proxy, VPN, corporate egress filter or
+  sandboxed environment refused the connection before it reached the vendor.
+  Your key is not implicated. Run the pipeline from a machine with direct
+  outbound HTTPS.
+- **403 from the vendor** -- ElevenLabs issues *scoped* keys, and one created
+  with its permissions switched off is recognised but refused on every call.
+  Re-create it with 'User: read', 'Models: read', 'Voices: read' and
+  'Text to Speech' enabled.
+
+`doctor` distinguishes them by inspecting the response body. Do not regenerate
+a key on the strength of a status code alone.
+
 ## Health checks
 
 ```bash

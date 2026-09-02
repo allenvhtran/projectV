@@ -100,9 +100,23 @@ def _elevenlabs() -> list[Check]:
             return [Check("ElevenLabs", FAIL, "401 - key not recognised",
                           "regenerate the key at elevenlabs.io -> Profile -> API Keys")]
         if r.status_code == 403:
+            # A 403 can come from ElevenLabs (scoped key missing a permission)
+            # or from something in between (corporate proxy, egress filter,
+            # firewall). They need opposite fixes, and blaming the key for a
+            # blocked network sends you to regenerate a key that was fine.
+            # ElevenLabs answers with a JSON body; an intermediary rarely does.
+            body = r.text[:200]
+            looks_like_elevenlabs = "detail" in body or "status" in body
+            if not looks_like_elevenlabs:
+                return [Check(
+                    "ElevenLabs", FAIL,
+                    "403 from an intermediary, not from ElevenLabs",
+                    "Something between you and the API refused the connection "
+                    "(proxy, VPN, egress filter). The key is not implicated. "
+                    f"Response was: {body!r}")]
             return [Check(
                 "ElevenLabs", FAIL,
-                "403 - key is recognised but has no permission for this call",
+                "403 - key is recognised but lacks permission for this call",
                 "The key was created with scopes disabled. At elevenlabs.io -> "
                 "Profile -> API Keys, edit it (or make a new one) with "
                 "'User: read', 'Models: read', 'Voices: read' and "
