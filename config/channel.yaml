@@ -22,7 +22,13 @@ voice:
 
 visual:
   aspect: "1920x1080"
-  # FLUX renders at these dims then we upscale for the Ken Burns headroom.
+  # FLUX on Replicate takes aspect_ratio + megapixels, NOT width/height.
+  # "16:9" at 1 megapixel lands ~1344x768, which the Ken Burns pass then
+  # upscales for its move headroom.
+  gen_aspect: "16:9"          # 1:1 4:3 16:9 21:9 9:16 3:4 9:21
+  gen_megapixels: "1"         # "1" or "0.25"
+  # Size for --dry-run placeholder cards only; the real generator uses the two
+  # fields above.
   gen_size: "1344x768"
   style_suffix: >
     shot on 35mm film, heavy grain, desaturated cold palette, deep shadows,

@@ -17,7 +17,7 @@ from ..config import ROOT, Config, env
 from ..costs import RATES
 from ..schema import Metadata
 from ..state import Manifest
-from .s3_visuals import _predict
+from .s3_visuals import Fatal, _predict
 
 
 def _timestamps(m: Manifest) -> str:
@@ -85,15 +85,17 @@ def run(m: Manifest, cfg: Config, force: bool = False) -> Manifest:
                 {
                     "prompt": f"{meta['thumbnail_prompt']}. "
                               f"{cfg.channel['visual']['style_suffix'].strip()}",
-                    "width": 1280, "height": 720, "num_outputs": 1,
-                    "output_format": "png", "guidance": 3.0,
-                    "num_inference_steps": 32,
+                    "aspect_ratio": "16:9", "megapixels": "1",
+                    "num_outputs": 1, "output_format": "png",
+                    "guidance": 3.0, "num_inference_steps": 32,
                 },
                 env("REPLICATE_API_TOKEN"),
             )
             thumb.write_bytes(requests.get(url, timeout=120).content)
             m.add_cost("thumbnail", RATES["flux_dev_per_image"])
-        except Exception as exc:  # noqa: BLE001
+        except (Fatal, Exception) as exc:  # noqa: BLE001
+            # The thumbnail is the one image you can trivially replace by hand,
+            # so a failure here never costs the episode.
             print(f"  metadata: thumbnail render failed ({exc}); continuing")
 
     m.data["metadata"] = meta

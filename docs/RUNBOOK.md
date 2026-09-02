@@ -101,6 +101,14 @@ ignore a message, not miss one.
 Per-beat caching is what makes re-reads cheap: fixing one line costs that
 line's characters, not the episode's 7,258.
 
+## Where this pipeline can run
+
+It needs direct outbound HTTPS to `api.anthropic.com`, `api.elevenlabs.io`,
+`api.replicate.com` and `googleapis.com`. Sandboxes, CI runners and corporate
+networks frequently allow only the first of those, and the failure looks like
+a credentials problem rather than a network one. `make doctor` names which is
+which. Run the pipeline from a machine with unrestricted egress.
+
 ## If `doctor` reports a 403
 
 A 403 has two unrelated causes and they need opposite fixes:

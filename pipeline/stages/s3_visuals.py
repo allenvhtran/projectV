@@ -23,18 +23,41 @@ from ..state import Manifest
 API = "https://api.replicate.com/v1"
 
 
+class Fatal(Exception):
+    """An error that retrying cannot fix: bad credentials, a blocked network,
+    a malformed request. Retrying these 3 times per beat across 35 beats turns
+    one misconfiguration into minutes of exponential backoff before the run
+    dies anyway."""
+
+
 def _predict(model: str, payload: dict, token: str, timeout: int = 300) -> str:
     """Create a prediction and block until it returns an image URL."""
-    r = requests.post(
-        f"{API}/models/{model}/predictions",
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-            "Prefer": "wait",
-        },
-        json={"input": payload},
-        timeout=timeout,
-    )
+    try:
+        r = requests.post(
+            f"{API}/models/{model}/predictions",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+                "Prefer": "wait",
+            },
+            json={"input": payload},
+            timeout=timeout,
+        )
+    except (requests.exceptions.ProxyError,
+            requests.exceptions.SSLError) as exc:
+        raise Fatal(
+            f"cannot reach api.replicate.com ({type(exc).__name__}). Something "
+            f"between you and Replicate is refusing the connection -- proxy, "
+            f"VPN, or egress filter."
+        ) from exc
+
+    if r.status_code in (401, 403):
+        raise Fatal(
+            f"Replicate rejected the token ({r.status_code}). Check "
+            f"REPLICATE_API_TOKEN, and that billing is enabled on the account."
+        )
+    if r.status_code == 422:
+        raise Fatal(f"Replicate rejected the request body: {r.text[:300]}")
     r.raise_for_status()
     pred = r.json()
 
@@ -83,7 +106,6 @@ def run(m: Manifest, cfg: Config, force: bool = False,
     beats = m.beats
     img_dir = m.path("images")
 
-    width, height = (int(x) for x in vis["gen_size"].split("x"))
     spend = 0.0
     rendered = 0
 
@@ -96,19 +118,27 @@ def run(m: Manifest, cfg: Config, force: bool = False,
         model = icfg["model_hero"] if hero else icfg["model_cheap"]
         prompt = f"{b['image_prompt']}. {vis['style_suffix'].strip()}"
 
+        # FLUX on Replicate is driven by aspect_ratio + megapixels. Passing
+        # width/height instead is silently unhelpful: they are not part of this
+        # interface, so the model falls back to its 1:1 default and every shot
+        # comes out square -- wrong for a 16:9 video, and paid for.
         payload = {
             "prompt": prompt,
-            "width": width,
-            "height": height,
+            "aspect_ratio": vis.get("gen_aspect", "16:9"),
+            "megapixels": str(vis.get("gen_megapixels", "1")),
             "num_outputs": 1,
             "output_format": "png",
             "disable_safety_checker": False,
         }
         if hero:
+            # flux-dev: guidance 0-10 (3 is the sane default), steps 1-50 with
+            # 28+ recommended for quality. No go_fast on dev.
             payload["guidance"] = 3.0
             payload["num_inference_steps"] = 28
         else:
+            # flux-schnell is distilled to 4 steps; more is wasted money.
             payload["go_fast"] = True
+            payload["num_inference_steps"] = 4
 
         url = None
         for attempt in range(icfg["retries"]):
@@ -120,9 +150,16 @@ def run(m: Manifest, cfg: Config, force: bool = False,
                 )
                 url = _predict(model, payload, token)
                 break
-            except Exception as exc:  # noqa: BLE001
+            except Fatal as exc:
+                # No amount of waiting fixes these. Stop on the first one so
+                # the message is visible instead of buried under 34 more.
+                raise SystemExit(f"\n  visuals: {exc}") from exc
+            except Exception as exc:  # noqa: BLE001 - transient; worth a retry
                 if attempt == icfg["retries"] - 1:
-                    raise SystemExit(f"Image failed for beat {b['id']}: {exc}")
+                    raise SystemExit(
+                        f"\n  visuals: beat {b['id']} failed after "
+                        f"{icfg['retries']} attempts: {exc}"
+                    )
                 time.sleep(2 ** attempt)
 
         img = requests.get(url, timeout=120)

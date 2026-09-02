@@ -62,6 +62,17 @@ So the split is:
 Both read the same `.env`, so a voice you pick interactively is the voice the
 pipeline uses.
 
+### FLUX request shape
+
+FLUX on Replicate is driven by `aspect_ratio` + `megapixels`, **not**
+`width`/`height`. Passing width/height is silently unhelpful -- they are not
+part of this interface, so the model falls back to its 1:1 default and every
+shot comes back square. Wrong for a 16:9 video, and paid for either way.
+
+`"16:9"` at 1 megapixel lands ~1344x768, which the Ken Burns pass upscales for
+its move headroom. Steps differ by model: flux-schnell is distilled to 4 (more
+is wasted money), flux-dev wants 28+ with `guidance` around 3.
+
 ## Music: Epidemic Sound
 
 You need roughly **8-10 tracks, not a catalogue.** `s4_music.py` rotates a small
