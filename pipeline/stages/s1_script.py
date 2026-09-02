@@ -14,6 +14,7 @@ from anthropic import Anthropic
 
 from ..config import ROOT, Config, env
 from ..costs import RATES
+from ..schema import Script
 from ..state import Manifest
 
 
@@ -73,26 +74,52 @@ def run(m: Manifest, cfg: Config, force: bool = False) -> Manifest:
     prompt = _render_prompt(cfg, m.data["variation"])
 
     print(f"  script: generating with {model} ...")
-    resp = client.messages.create(
+    # Three things this call gets right, each learned the hard way:
+    #
+    # No temperature -- sampling parameters are rejected with a 400 on Opus 5.
+    # Creative range comes from the prompt and the per-episode variation draw.
+    #
+    # output_format constrains generation to the Script schema, so there is no
+    # JSON to scrape out of prose and no fence to strip.
+    #
+    # Streaming with a large max_tokens -- thinking tokens are drawn from the
+    # same budget as output, so a 35-beat script plus reasoning overruns 16k
+    # and truncates mid-string. Streaming also keeps a long generation from
+    # hitting the SDK's HTTP timeout.
+    with client.messages.stream(
         model=model,
-        max_tokens=16000,
-        temperature=1.0,
+        max_tokens=64000,
+        output_format=Script,
         messages=[{"role": "user", "content": prompt}],
-    )
-    raw = "".join(b.text for b in resp.content if b.type == "text")
-    script = _extract_json(raw)
+    ) as stream:
+        resp = stream.get_final_message()
 
-    beats = script.get("beats", [])
+    if resp.stop_reason == "refusal":
+        raise SystemExit(
+            "The model declined this prompt "
+            f"({getattr(resp.stop_details, 'category', 'unknown')}). "
+            "Check the setting and structure drawn for this episode."
+        )
+    if resp.stop_reason == "max_tokens":
+        raise SystemExit(
+            "Generation hit max_tokens and the script is incomplete. Raise "
+            "max_tokens in s1_script.run, or lower target.runtime_minutes."
+        )
+    script = resp.parsed_output.model_dump()
+
+    beats = script["beats"]
     if len(beats) < 6:
         raise SystemExit(f"Script came back with only {len(beats)} beats; aborting.")
 
-    # Normalise and backfill anything the model omitted.
+    # The schema guarantees the fields exist; this fixes their values. Beat ids
+    # are renumbered because the model occasionally restarts its own counter,
+    # and pauses are clamped because an out-of-range one distorts the timeline
+    # that every later stage is built on.
     default_pause = cfg.channel["voice"]["beat_pause_default"]
     for i, b in enumerate(beats, start=1):
         b["id"] = i
-        b.setdefault("hero", False)
-        b.setdefault("section", "escalation")
-        b["pause_after"] = float(b.get("pause_after") or default_pause)
+        pause = b.get("pause_after") or default_pause
+        b["pause_after"] = min(2.5, max(0.3, float(pause)))
     beats[-1]["pause_after"] = 1.5
 
     words = sum(len(b["narration"].split()) for b in beats)

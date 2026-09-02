@@ -15,8 +15,8 @@ from anthropic import Anthropic
 
 from ..config import ROOT, Config, env
 from ..costs import RATES
+from ..schema import Metadata
 from ..state import Manifest
-from .s1_script import _extract_json
 from .s3_visuals import _predict
 
 
@@ -56,11 +56,14 @@ def run(m: Manifest, cfg: Config, force: bool = False) -> Manifest:
     )
 
     print("  metadata: generating packaging ...")
-    resp = client.messages.create(
-        model=model, max_tokens=4000, temperature=0.9,
+    with client.messages.stream(
+        model=model, max_tokens=32000, output_format=Metadata,
         messages=[{"role": "user", "content": prompt}],
-    )
-    meta = _extract_json("".join(b.text for b in resp.content if b.type == "text"))
+    ) as stream:
+        resp = stream.get_final_message()
+    if resp.stop_reason in ("refusal", "max_tokens"):
+        raise SystemExit(f"Metadata generation stopped early: {resp.stop_reason}")
+    meta = resp.parsed_output.model_dump()
 
     chapters = _timestamps(m)
     if chapters:

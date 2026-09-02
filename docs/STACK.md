@@ -26,6 +26,26 @@ Runway was also dropped for stills: it's a video-first product and priced like
 one. If you later want 3–5s motion inserts for hero beats, that's where Runway
 earns its cost — but it's a per-episode upsell, not the baseline.
 
+## Claude API specifics this pipeline depends on
+
+Three things that are easy to get wrong on the current models, all of which
+this pipeline hit during its first live run:
+
+- **`temperature` is rejected with a 400 on Opus 5** and the rest of the 4.7+
+  family. Sampling parameters are gone. Creative range comes from the prompt
+  and the per-episode variation draw instead.
+- **Thinking tokens draw from `max_tokens`.** Opus 5 runs adaptive thinking by
+  default, so a 35-beat script plus its reasoning overran a 16k budget and
+  truncated mid-string. The script stage uses 64k and streams, which also keeps
+  a long generation clear of the SDK's HTTP timeout.
+- **Structured outputs replace JSON scraping.** Both Claude stages pass
+  `output_format` (a Pydantic schema in `pipeline/schema.py`) to
+  `client.messages.stream`, so generation is constrained to the shape the
+  pipeline needs. No fenced-JSON stripping, no regex, no parse failures at 4am.
+
+Both stages also check `stop_reason` for `refusal` and `max_tokens` and fail
+with a specific message rather than a schema-validation traceback.
+
 ## 2. MCP is for your chair, not for the cron job
 
 MCP servers need an MCP client — a model in a live session — for every call.
