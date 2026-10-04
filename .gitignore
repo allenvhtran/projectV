@@ -3,7 +3,15 @@ __pycache__/
 *.pyc
 .venv/
 venv/
-episodes/*/
+# Episode artefacts: keep the cheap, expensive-to-recreate text; drop the
+# large, regenerable binaries. A script costs ~$0.36 of Opus 5 and is a few KB;
+# the audio, stills and render are hundreds of MB and reproducible from it.
+# Ignoring the whole directory meant a container reset lost a paid-for script.
+episodes/*/audio/
+episodes/*/images/
+episodes/*/clips/
+episodes/*.mp4
+episodes/*/*.mp4
 !episodes/.gitkeep
 assets/music/*
 !assets/music/.gitkeep

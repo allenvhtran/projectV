@@ -101,6 +101,28 @@ ignore a message, not miss one.
 Per-beat caching is what makes re-reads cheap: fixing one line costs that
 line's characters, not the episode's 7,258.
 
+## Getting the project onto a machine
+
+```bash
+git clone https://github.com/allenvhtran/projectV.git
+cd projectV
+git checkout claude/youtube-horror-pipeline-r96chh
+pip install -r requirements.txt
+cp .env.example .env && $EDITOR .env     # the four keys -- NOT in git
+make doctor
+```
+
+Three things are deliberately absent from the repository and have to be put
+back by hand on each machine: `.env` (API keys), `client_secret.json` (Google
+OAuth), and the music library. Everything else, including every episode's
+script and manifest, is tracked.
+
+Episode scripts *are* committed; audio, stills, clips and renders are not. A
+script is a few KB and costs ~$0.36 of Opus 5 to regenerate, so it is worth
+keeping; the media is hundreds of MB and reproducible from the script, so it
+is not. Re-render on a fresh checkout with
+`python -m pipeline.cli run --slug <slug>`.
+
 ## Where this pipeline can run
 
 It needs direct outbound HTTPS to `api.anthropic.com`, `api.elevenlabs.io`,
