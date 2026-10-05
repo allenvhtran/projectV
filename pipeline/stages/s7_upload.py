@@ -4,9 +4,9 @@ Defaults to privacy_status=private. Publishing an unreviewed automated render
 straight to public is how a channel accumulates strikes it can't see coming --
 make `--publish` a deliberate act, or set a scheduled publishAt after review.
 
-One-time setup: create an OAuth *desktop app* client in Google Cloud Console
-with the YouTube Data API v3 enabled, download client_secret.json, then run
-`python -m pipeline.cli auth` once to mint the refresh token.
+One-time setup: see docs/YOUTUBE_OAUTH.md. The step people miss is publishing
+the consent screen -- an app left in "Testing" has its refresh token expired by
+Google after 7 days, which breaks a scheduled pipeline every week.
 
 Quota: an upload costs ~1600 units against a default 10,000/day, so a daily
 schedule is comfortable but leaves no room for bulk API experimentation on the
@@ -19,10 +19,12 @@ from pathlib import Path
 from ..config import ROOT, Config, env
 from ..state import Manifest
 
-SCOPES = [
-    "https://www.googleapis.com/auth/youtube.upload",
-    "https://www.googleapis.com/auth/youtube.force-ssl",
-]
+# One scope, not two. force-ssl alone authorises everything this stage calls:
+# videos.insert, thumbnails.set and captions.insert (captions requires it --
+# youtube.upload is not sufficient there). Requesting youtube.upload alongside
+# it is redundant, and overlapping YouTube scopes are a documented cause of
+# OAuth verification rejection.
+SCOPES = ["https://www.googleapis.com/auth/youtube.force-ssl"]
 CATEGORY_ENTERTAINMENT = "24"
 
 

@@ -106,7 +106,7 @@ Four accounts:
 | [Anthropic](https://console.anthropic.com) | scripts, metadata | ~$0.25/episode |
 | [ElevenLabs](https://elevenlabs.io) **Creator+** | narration | $22/mo — Free has no commercial licence |
 | [Replicate](https://replicate.com) | images, thumbnails | ~$0.33/episode |
-| [Google Cloud](https://console.cloud.google.com) | YouTube upload | free |
+| [Google Cloud](https://console.cloud.google.com) | YouTube upload | free — see [docs/YOUTUBE_OAUTH.md](docs/YOUTUBE_OAUTH.md) |
 
 `make doctor` checks all of them, live, and prints the specific fix for
 whatever is missing. Nothing above is needed for `--dry-run`.
